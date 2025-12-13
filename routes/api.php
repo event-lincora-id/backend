@@ -68,12 +68,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('my-events', [EventController::class, 'myEvents']);
         Route::get('participating', [EventController::class, 'participatingEvents']);
         Route::get('categories', [EventController::class, 'categories']);
+        Route::get('{event}/participants', [EventParticipantController::class, 'getEventParticipants']);
     });
 
     // Event participation routes
     Route::prefix('participants')->group(function () {
         Route::post('join/{event}', [EventParticipantController::class, 'joinEvent']);
         Route::post('cancel/{event}', [EventParticipantController::class, 'cancelParticipation']);
+        Route::put('{id}/cancel', [EventParticipantController::class, 'cancel']);
         Route::post('attendance', [EventParticipantController::class, 'markAttendance']);
         Route::get('my-participations', [EventParticipantController::class, 'myParticipations']);
         Route::get('event/{event}', [EventParticipantController::class, 'getEventParticipants']);

@@ -134,6 +134,12 @@ class EventController extends Controller
 
         $event = Event::create($data);
 
+        // Create directory if it doesn't exist
+        $qrCodeDir = storage_path('app/public/qr_codes');
+        if (!is_dir($qrCodeDir)) {
+            mkdir($qrCodeDir, 0755, true);
+        }
+
         // Generate QR code image (using SVG format for better compatibility)
         $qrCodePath = 'qr_codes/' . $qrCodeString . '.svg';
         QrCode::format('svg')->size(200)->generate($qrCodeString, storage_path('app/public/' . $qrCodePath));

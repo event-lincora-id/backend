@@ -148,6 +148,8 @@ class AnalyticsController extends Controller
                 'success' => true,
                 'data' => [
                     'stats' => [
+                        'total_events' => $totalEvents,
+                        'active_events' => Event::where('user_id', $organizerId)->where('status', 'published')->count(),
                         'total_revenue' => $totalRevenue,
                         'avg_rating' => round($avgRating, 1),
                         'conversion_rate' => $conversionRate,
@@ -155,6 +157,7 @@ class AnalyticsController extends Controller
                         'new_users' => $newUsers,
                         'total_participants' => $totalParticipants,
                         'total_feedbacks' => $totalFeedbacks,
+                        'avg_attendance' => $totalEvents > 0 ? round($totalParticipants / $totalEvents, 1) : 0,
                     ],
                     'monthlyTrends' => $monthlyTrends,
                     'categoryAnalytics' => $categoryAnalytics,

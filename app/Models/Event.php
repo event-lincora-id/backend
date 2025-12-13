@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class Event extends Model
@@ -27,12 +28,15 @@ class Event extends Model
         'registered_count',
         'image',
         'qr_code',
+        'qr_code_string',
         'status',
         'is_active',
         'feedback_summary',
         'feedback_summary_generated_at',
         'feedback_count_at_summary'
     ];
+
+    protected $appends = ['image_url', 'qr_code_url'];
 
     protected function casts(): array
     {
@@ -44,6 +48,23 @@ class Event extends Model
             'is_active' => 'boolean',
             'feedback_summary_generated_at' => 'datetime'
         ];
+    }
+
+    // Accessors for Storage URLs
+    public function getImageUrlAttribute()
+    {
+        if ($this->image) {
+            return Storage::disk('public')->url($this->image);
+        }
+        return null;
+    }
+
+    public function getQrCodeUrlAttribute()
+    {
+        if ($this->qr_code) {
+            return Storage::disk('public')->url($this->qr_code);
+        }
+        return null;
     }
 
     // Relationships

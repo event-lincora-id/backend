@@ -202,38 +202,89 @@ class EventParticipantController extends Controller
         }
 
         $user = $request->user();
-
-        // Find participant by their unique QR code
         $qrCodeString = $request->qr_code;
-        $participant = EventParticipant::where('qr_code_string', $qrCodeString)
-            ->where('user_id', $user->id)
-            ->first();
 
-        if (!$participant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid QR code or you are not authorized to use this QR code'
-            ], 400);
+        // Determine QR type: Event QR or Participant QR
+        $isEventQR = str_starts_with($qrCodeString, 'event_');
+        $participant = null;
+
+        if ($isEventQR) {
+            // Event QR: Find event by QR code, then find participant by user_id + event_id
+            $event = Event::where('qr_code_string', $qrCodeString)->first();
+
+            if (!$event) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid event QR code'
+                ], 404);
+            }
+
+            // Find participant record for this user + event
+            $participant = EventParticipant::where('user_id', $user->id)
+                                           ->where('event_id', $event->id)
+                                           ->first();
+
+            if (!$participant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not registered for this event'
+                ], 404);
+            }
+
+        } else {
+            // Participant QR: Original logic (backward compatibility)
+            $participant = EventParticipant::where('qr_code_string', $qrCodeString)
+                                           ->where('user_id', $user->id)
+                                           ->first();
+
+            if (!$participant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid QR code or you are not authorized to use this QR code'
+                ], 404);
+            }
         }
 
-        $event = $participant->event;
-
+        // Check if already attended
         if ($participant->status === 'attended') {
             return response()->json([
                 'success' => false,
-                'message' => 'Attendance already marked'
+                'message' => 'You have already marked your attendance for this event',
+                'data' => [
+                    'attended_at' => $participant->attended_at
+                ]
             ], 400);
         }
 
+        // Check if participant is registered (not pending_payment or cancelled)
+        if (!in_array($participant->status, ['registered'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot mark attendance. Your registration status is: ' . $participant->status
+            ], 400);
+        }
+
+        // Mark as attended
         $participant->update([
             'status' => 'attended',
-            'attended_at' => now()
+            'attended_at' => now(),
+        ]);
+
+        \Log::info('Attendance marked', [
+            'user_id' => $user->id,
+            'event_id' => $participant->event_id,
+            'participant_id' => $participant->id,
+            'qr_type' => $isEventQR ? 'event_qr' : 'participant_qr'
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Attendance marked successfully',
-            'data' => $participant
+            'data' => [
+                'event' => $participant->event->title ?? 'Event',
+                'attended_at' => $participant->attended_at,
+                'participant' => $participant
+            ]
         ]);
     }
 
@@ -340,6 +391,49 @@ class EventParticipantController extends Controller
             'success' => true,
             'message' => 'Payment processed successfully',
             'data' => $participant
+        ]);
+    }
+
+    /**
+     * Cancel payment by participant ID (Option C: Mark as cancelled, keep record)
+     */
+    public function cancel(Request $request, $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $participant = EventParticipant::find($id);
+
+        if (!$participant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Participant not found'
+            ], 404);
+        }
+
+        // Check authorization - only participant owner or admin can cancel
+        if ($participant->user_id !== $user->id && !$user->hasRole('admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to cancel this payment'
+            ], 403);
+        }
+
+        // Only allow cancellation if not paid
+        if ($participant->is_paid || $participant->payment_status === 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot cancel paid registration'
+            ], 400);
+        }
+
+        // Mark as cancelled (Option C: keep record for history)
+        $participant->update([
+            'status' => 'cancelled',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment cancelled successfully'
         ]);
     }
 }

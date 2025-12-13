@@ -230,16 +230,34 @@ class PaymentService
             $paymentMethod = $webhookData['payment_method'] ?? 'unknown';
 
             // Extract participant ID from external_id
-            if (strpos($externalId, 'event_payment_') === 0) {
+            // Support both old and new formats
+            if (strpos($externalId, 'event_') === 0 && strpos($externalId, '_participant_') !== false) {
+                // New format: event_{eventId}_participant_{participantId}_{timestamp}
+                $parts = explode('_participant_', $externalId);
+                if (count($parts) >= 2) {
+                    $participantId = (int) explode('_', $parts[1])[0];
+                } else {
+                    Log::warning('Could not parse participant ID from external_id', ['external_id' => $externalId]);
+                    return false;
+                }
+            } elseif (strpos($externalId, 'event_payment_') === 0) {
+                // Old format: event_payment_{participantId}
                 $participantId = explode('_', $externalId)[2];
             } elseif (strpos($externalId, 'event_va_') === 0) {
+                // Old format: event_va_{participantId}
                 $participantId = explode('_', $externalId)[2];
             } elseif (strpos($externalId, 'event_ewallet_') === 0) {
+                // Old format: event_ewallet_{participantId}
                 $participantId = explode('_', $externalId)[2];
             } else {
                 Log::warning('Unknown external_id format in webhook', ['external_id' => $externalId]);
                 return false;
             }
+
+            Log::info('Extracted participant ID from webhook', [
+                'external_id' => $externalId,
+                'participant_id' => $participantId
+            ]);
 
             $participant = EventParticipant::find($participantId);
             if (!$participant) {
@@ -250,23 +268,61 @@ class PaymentService
             // Update participant status based on payment status
             switch ($status) {
                 case 'PAID':
+                    // Update participant to REGISTERED status with payment confirmation
+                    $wasRegistered = $participant->status === 'registered';
                     $participant->update([
+                        'status' => 'registered',  // NOW user is registered
                         'payment_status' => 'paid',
                         'is_paid' => true,
                         'amount_paid' => $webhookData['amount'] ?? $participant->event->price,
                         'paid_at' => now(),
+                    ]);
+
+                    // NOW increment registered count (only for newly registered participants)
+                    if (!$wasRegistered) {
+                        $participant->event->increment('registered_count');
+                    }
+
+                    // Create notification for organizer
+                    \App\Models\Notification::create([
+                        'user_id' => $participant->event->user_id,
+                        'event_id' => $participant->event_id,
+                        'type' => 'event_registration',
+                        'title' => 'New Paid Event Registration',
+                        'message' => $participant->user->full_name . ' has registered and paid for: ' . $participant->event->title,
+                        'data' => [
+                            'participant_id' => $participant->id,
+                            'participant_name' => $participant->user->full_name,
+                            'amount_paid' => $participant->amount_paid
+                        ]
+                    ]);
+
+                    Log::info('Participant registered after payment', [
+                        'participant_id' => $participant->id,
+                        'event_id' => $participant->event_id,
+                        'amount_paid' => $participant->amount_paid
                     ]);
                     break;
 
                 case 'EXPIRED':
                     $participant->update([
                         'payment_status' => 'expired',
+                        'status' => 'cancelled',  // Cancel registration for expired payment
+                    ]);
+
+                    Log::info('Payment expired, registration cancelled', [
+                        'participant_id' => $participant->id
                     ]);
                     break;
 
                 case 'FAILED':
                     $participant->update([
                         'payment_status' => 'failed',
+                        'status' => 'cancelled',  // Cancel registration for failed payment
+                    ]);
+
+                    Log::info('Payment failed, registration cancelled', [
+                        'participant_id' => $participant->id
                     ]);
                     break;
 

@@ -16,6 +16,9 @@ class EventParticipant extends Model
         'is_paid',
         'amount_paid',
         'payment_reference',
+        'payment_status',
+        'payment_url',
+        'paid_at',
         'attended_at',
         'qr_code',
         'qr_code_string',
@@ -27,6 +30,7 @@ class EventParticipant extends Model
             'is_paid' => 'boolean',
             'amount_paid' => 'decimal:2',
             'attended_at' => 'datetime',
+            'paid_at' => 'datetime',
         ];
     }
 
