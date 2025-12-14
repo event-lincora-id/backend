@@ -16,14 +16,16 @@ class EventReminderMail extends Mailable
 
     public Event $event;
     public User $user;
+    public string $reminderType;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Event $event, User $user)
+    public function __construct(Event $event, User $user, string $reminderType = 'h1')
     {
         $this->event = $event;
         $this->user = $user;
+        $this->reminderType = $reminderType; // 'h1' (1 day before) or 'h0' (1 hour before)
     }
 
     /**
@@ -31,8 +33,12 @@ class EventReminderMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subject = $this->reminderType === 'h0'
+            ? 'Reminder: ' . $this->event->title . ' dimulai 1 jam lagi!'
+            : 'Reminder: ' . $this->event->title . ' Tomorrow';
+
         return new Envelope(
-            subject: 'Reminder: ' . $this->event->title . ' Tomorrow',
+            subject: $subject,
         );
     }
 
@@ -46,6 +52,7 @@ class EventReminderMail extends Mailable
             with: [
                 'event' => $this->event,
                 'user' => $this->user,
+                'reminderType' => $this->reminderType,
                 'eventDate' => $this->event->start_date->format('l, d F Y'),
                 'eventTime' => $this->event->start_date->format('H:i'),
                 'eventEndDate' => $this->event->end_date->format('l, d F Y'),

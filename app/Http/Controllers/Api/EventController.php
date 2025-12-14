@@ -245,6 +245,16 @@ class EventController extends Controller
             ], 403);
         }
 
+        // Check if event has already started - cannot edit started events
+        if ($event->start_date <= now()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot edit events that have already started',
+                'event_start_date' => $event->start_date,
+                'current_time' => now()
+            ], 400);
+        }
+
         $validator = Validator::make($request->all(), [
             'category_id' => 'sometimes|required|exists:categories,id',
             'title' => 'sometimes|required|string|max:255',

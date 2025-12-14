@@ -12,7 +12,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Send event reminders daily at 9:00 AM for events happening tomorrow
+        // Send event reminders daily at 9:00 AM for events happening tomorrow (H-1)
         $schedule->command('events:send-reminders')
             ->dailyAt('09:00')
             ->timezone('Asia/Jakarta')
@@ -22,6 +22,18 @@ class Kernel extends ConsoleKernel
             })
             ->onFailure(function () {
                 \Log::error('Event reminders failed to send');
+            });
+
+        // Send event reminders hourly for events starting in 1 hour (H-0)
+        $schedule->command('events:send-reminders-h0')
+            ->hourly()
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping()
+            ->onSuccess(function () {
+                \Log::info('H-0 event reminders sent successfully');
+            })
+            ->onFailure(function () {
+                \Log::error('H-0 event reminders failed to send');
             });
 
         // Optional: Send reminders multiple times a day
