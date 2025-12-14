@@ -302,6 +302,15 @@ class EventController extends Controller
             ], 403);
         }
 
+        // Check if event has participants - cannot delete events with participants
+        if ($event->registered_count > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete events with registered participants',
+                'registered_count' => $event->registered_count
+            ], 400);
+        }
+
         // Delete associated files
         if ($event->image) {
             Storage::disk('public')->delete($event->image);

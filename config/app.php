@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | This URL points to the frontend application. Used for generating links
+    | in emails (e.g., password reset links) that need to redirect users to
+    | the frontend application instead of the API backend.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:8002'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
@@ -65,7 +78,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Jakarta',
 
     /*
     |--------------------------------------------------------------------------
