@@ -278,7 +278,7 @@ class FeedbackController extends Controller
      *     @OA\Response(response=401, description="Unauthenticated")
      * )
      */
-    public function downloadCertificate(Request $request, Event $event): JsonResponse
+    public function downloadCertificate(Request $request, Event $event)
     {
         $user = $request->user();
 

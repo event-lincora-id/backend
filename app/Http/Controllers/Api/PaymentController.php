@@ -48,6 +48,35 @@ class PaymentController extends Controller
             ->where('event_id', $event->id)
             ->first();
 
+        // If participant exists, check their status
+        if ($participant) {
+            // User already registered or attended - cannot create new payment
+            if (in_array($participant->status, ['registered', 'attended'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You have already joined this event'
+                ], 422);
+            }
+
+            // User has pending payment - redirect to existing payment URL if available
+            if ($participant->status === 'pending_payment' && $participant->payment_url) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'You already have a pending payment for this event',
+                    'data' => [
+                        'payment_url' => $participant->payment_url,
+                        'participant' => $participant,
+                        'event' => [
+                            'id' => $event->id,
+                            'title' => $event->title,
+                            'start_date' => $event->start_date,
+                            'location' => $event->location,
+                        ]
+                    ]
+                ]);
+            }
+        }
+
         if (!$participant) {
             // Auto-join the event first for paid events
             if ($event->price > 0) {
@@ -204,16 +233,46 @@ class PaymentController extends Controller
         // If payment reference exists, get status from Xendit
         if ($participant->payment_reference) {
             $status = $this->paymentService->getPaymentStatus($participant->payment_reference);
-            
+
             if ($status['success']) {
                 // Update local status if different
-                if ($status['status'] !== $participant->payment_status) {
-                    $participant->update([
-                        'payment_status' => strtolower($status['status']),
+                $currentPaymentStatus = $participant->payment_status;
+                $newPaymentStatus = strtolower($status['status']);
+
+                if ($newPaymentStatus !== $currentPaymentStatus) {
+                    // Check if payment just completed
+                    $wasRegistered = $participant->status === 'registered';
+
+                    // Prepare update data
+                    $updateData = [
+                        'payment_status' => $newPaymentStatus,
                         'is_paid' => $status['status'] === 'PAID',
-                        'amount_paid' => $status['paid_amount'] ?? $participant->amount_paid,
+                        'amount_paid' => ($status['paid_amount'] > 0) ? $status['paid_amount'] : $participant->event->price,
                         'paid_at' => $status['status'] === 'PAID' ? now() : $participant->paid_at,
-                    ]);
+                    ];
+
+                    // CRITICAL FIX: Update participant status when payment confirmed
+                    if ($status['status'] === 'PAID' && $participant->status === 'pending_payment') {
+                        $updateData['status'] = 'registered';
+
+                        Log::info('Payment confirmed via status check - registering participant', [
+                            'participant_id' => $participant->id,
+                            'event_id' => $participant->event_id,
+                            'payment_reference' => $participant->payment_reference,
+                        ]);
+                    }
+
+                    $participant->update($updateData);
+
+                    // CRITICAL FIX: Increment registered count when payment confirmed
+                    if ($status['status'] === 'PAID' && !$wasRegistered) {
+                        $participant->event->increment('registered_count');
+
+                        Log::info('Incremented event registered_count via status check', [
+                            'event_id' => $participant->event_id,
+                            'new_count' => $participant->event->fresh()->registered_count,
+                        ]);
+                    }
                 }
             }
         }

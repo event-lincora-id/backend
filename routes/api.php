@@ -33,12 +33,12 @@ Route::prefix('auth')->group(function () {
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 });
 
-// Public event routes
+// Public event routes (specific routes only - wildcard moved to end)
 Route::get('events', [EventController::class, 'index']);
 Route::get('events/search', [EventController::class, 'search']);
 Route::get('events/filter-options', [EventController::class, 'getFilterOptions']);
 Route::get('events/popular-searches', [EventController::class, 'getPopularSearches']);
-Route::get('events/{event}', [EventController::class, 'show']);
+// Note: events/{event} wildcard route moved to end of file to avoid conflicts
 Route::get('categories', [CategoryController::class, 'index']);
 
 // Public payment routes
@@ -170,3 +170,8 @@ Route::prefix('notifications')->group(function () {
     });
 
 });
+
+// ==================== PUBLIC WILDCARD ROUTES ====================
+// These must be defined AFTER specific routes to avoid conflicts
+// The wildcard {event} parameter would match specific routes like 'my-events' if defined earlier
+Route::get('events/{event}', [EventController::class, 'show']);

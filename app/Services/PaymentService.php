@@ -352,18 +352,41 @@ class PaymentService
     }
 
     /**
-     * Get payment status
+     * Get payment status from Xendit
      */
     public function getPaymentStatus(string $paymentReference)
     {
         try {
-            // For now, simulate status check
+            // Call Xendit API to get invoice status
+            $invoiceApi = new InvoiceApi();
+            $invoice = $invoiceApi->getInvoiceById($paymentReference);
+
+            Log::info('Retrieved invoice status from Xendit', [
+                'invoice_id' => $paymentReference,
+                'status' => $invoice['status'] ?? 'unknown',
+                'paid_amount' => $invoice['paid_amount'] ?? 0,
+            ]);
+
             return [
                 'success' => true,
-                'status' => 'PENDING',
-                'amount' => 100000,
-                'paid_amount' => 0,
-                'invoice_url' => 'https://checkout.xendit.co/web/' . $paymentReference,
+                'status' => $invoice['status'] ?? 'PENDING',
+                'amount' => $invoice['amount'] ?? 0,
+                'paid_amount' => $invoice['paid_amount'] ?? 0,
+                'invoice_url' => $invoice['invoice_url'] ?? null,
+                'expiry_date' => $invoice['expiry_date'] ?? null,
+                'payment_method' => $invoice['payment_method'] ?? null,
+            ];
+
+        } catch (\Xendit\XenditSdkException $e) {
+            Log::error('Xendit SDK error while getting payment status', [
+                'payment_reference' => $paymentReference,
+                'error' => $e->getMessage(),
+                'full_error' => $e->getFullError(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
             ];
 
         } catch (\Exception $e) {

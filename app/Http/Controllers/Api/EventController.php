@@ -9,20 +9,32 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class EventController extends Controller
 {
     /**
      * Get all published events (Homepage) with advanced search & filter
+     * By default shows only upcoming events. Pass ?include_past=true to show all events.
      */
     public function index(Request $request): JsonResponse
     {
         $query = Event::with(['organizer', 'category'])
-            ->published()
-            ->active()
-            ->upcoming()
-            ->open();
+            ->active();
+
+        // Filter by status - include both published and completed events when include_past is true
+        // Only published events when include_past is false
+        if ($request->boolean('include_past')) {
+            $query->whereIn('status', ['published', 'completed']);
+        } else {
+            $query->published();
+        }
+
+        // Only filter by upcoming unless explicitly requested to include past events
+        if (!$request->boolean('include_past')) {
+            $query->upcoming();
+        }
+
+        $query->open();
 
         // Advanced search functionality
         if ($request->has('search') && !empty($request->search)) {
@@ -137,6 +149,19 @@ class EventController extends Controller
      */
     public function show(Event $event): JsonResponse
     {
+        // Security check: Draft events can only be viewed by their organizer
+        if ($event->status === 'draft') {
+            $user = auth('sanctum')->user();
+
+            // If not authenticated or not the organizer, return 404
+            if (!$user || $user->id !== $event->user_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Event not found'
+                ], 404);
+            }
+        }
+
         $event->load(['organizer', 'category', 'participants']);
 
         return response()->json([
@@ -188,15 +213,14 @@ class EventController extends Controller
             $data['image'] = $request->file('image')->store('events', 'public');
         }
 
-        // Generate QR code
-        $data['qr_code'] = 'event_' . time() . '_' . uniqid();
+        // Generate QR code string
+        $qrCodeString = 'event_' . time() . '_' . uniqid();
+        $data['qr_code_string'] = $qrCodeString;
+
+        // Keep qr_code field for backward compatibility (but no longer generate PNG)
+        $data['qr_code'] = $qrCodeString;
 
         $event = Event::create($data);
-
-        // Generate QR code image
-        $qrCodePath = 'qr_codes/' . $event->qr_code . '.png';
-        QrCode::format('png')->size(200)->generate($event->qr_code, storage_path('app/public/' . $qrCodePath));
-        $event->update(['qr_code' => $qrCodePath]);
 
         $event->load(['organizer', 'category']);
 
@@ -282,7 +306,9 @@ class EventController extends Controller
         if ($event->image) {
             Storage::disk('public')->delete($event->image);
         }
-        if ($event->qr_code) {
+        // No longer delete qr_code as it's just a string now, not a file
+        // Keep for backward compatibility with old events that still have PNG files
+        if ($event->qr_code && str_contains($event->qr_code, '.png')) {
             Storage::disk('public')->delete($event->qr_code);
         }
 

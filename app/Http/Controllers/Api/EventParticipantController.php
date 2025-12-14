@@ -28,6 +28,16 @@ class EventParticipantController extends Controller
             ], 400);
         }
 
+        // SECURITY: Check if event is paid - paid events MUST use payment endpoint
+        if ($event->price > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This is a paid event. Please use the payment endpoint to register.',
+                'event_price' => $event->price,
+                'payment_required' => true
+            ], 400);
+        }
+
         // Check if event is full
         if ($event->is_full) {
             return response()->json([
@@ -302,7 +312,9 @@ class EventParticipantController extends Controller
             $query->where('status', $request->status);
         }
 
-        $participations = $query->orderBy('created_at', 'desc')->paginate(10);
+        // Allow per_page parameter from request, default to 10, max 100
+        $perPage = min((int) $request->input('per_page', 10), 100);
+        $participations = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -427,9 +439,14 @@ class EventParticipantController extends Controller
         }
 
         // Mark as cancelled (Option C: keep record for history)
-        $participant->update([
-            'status' => 'cancelled',
-        ]);
+        $updateData = ['status' => 'cancelled'];
+
+        // If payment_status exists and is pending, mark it as failed
+        if ($participant->payment_status === 'pending') {
+            $updateData['payment_status'] = 'failed';
+        }
+
+        $participant->update($updateData);
 
         return response()->json([
             'success' => true,
