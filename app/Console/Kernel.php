@@ -36,6 +36,30 @@ class Kernel extends ConsoleKernel
                 \Log::error('H-0 event reminders failed to send');
             });
 
+        // Send attendance reminders every 5 minutes for ongoing events
+        $schedule->command('events:send-attendance-reminders')
+            ->everyFiveMinutes()
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping()
+            ->onSuccess(function () {
+                \Log::info('Attendance reminders sent successfully');
+            })
+            ->onFailure(function () {
+                \Log::error('Attendance reminders failed to send');
+            });
+
+        // Send event summaries hourly (checks for events that ended 1h ago or feedback >= 50%)
+        $schedule->command('events:send-summaries')
+            ->hourly()
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping()
+            ->onSuccess(function () {
+                \Log::info('Event summaries sent successfully');
+            })
+            ->onFailure(function () {
+                \Log::error('Event summaries failed to send');
+            });
+
         // Optional: Send reminders multiple times a day
         // $schedule->command('events:send-reminders')
         //     ->twiceDaily(9, 18) // 9 AM and 6 PM

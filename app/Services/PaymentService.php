@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use App\Models\EventParticipant;
 use App\Models\Event;
+use App\Mail\PaymentSuccessMail;
+use App\Mail\Organizer\ParticipantJoinMail;
 use Xendit\Configuration;
 use Xendit\Invoice\InvoiceApi;
 use Xendit\Invoice\CreateInvoiceRequest;
@@ -51,9 +54,9 @@ class PaymentService
                     'email' => $user->email,
                 ],
                 'customer_notification_preference' => [
-                    'invoice_created' => ['email'],
-                    'invoice_reminder' => ['email'],
-                    'invoice_paid' => ['email'],
+                    'invoice_created' => [],
+                    'invoice_reminder' => [],
+                    'invoice_paid' => [],
                 ],
                 'success_redirect_url' => $this->redirectUrl . '?participant_id=' . $participant->id . '&status=success',
                 'failure_redirect_url' => $this->redirectUrl . '?participant_id=' . $participant->id . '&status=failed',
@@ -296,6 +299,37 @@ class PaymentService
                             'amount_paid' => $participant->amount_paid
                         ]
                     ]);
+
+                    // Send payment success email to participant
+                    try {
+                        Mail::to($participant->user->email)->send(
+                            new PaymentSuccessMail($participant->event, $participant->user, $participant)
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send payment success email', [
+                            'participant_id' => $participant->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+
+                    // Send organizer notification email (only for newly registered)
+                    if (!$wasRegistered) {
+                        try {
+                            // Calculate total revenue for this event
+                            $totalRevenue = EventParticipant::where('event_id', $participant->event_id)
+                                ->where('is_paid', true)
+                                ->sum('amount_paid');
+
+                            Mail::to($participant->event->organizer->email)->send(
+                                new ParticipantJoinMail($participant->event, $participant->event->organizer, $participant, $totalRevenue)
+                            );
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send organizer notification email', [
+                                'participant_id' => $participant->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
 
                     Log::info('Participant registered after payment', [
                         'participant_id' => $participant->id,

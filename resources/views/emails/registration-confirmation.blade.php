@@ -1,23 +1,23 @@
 @extends('emails.layouts.master')
 
-@section('title', 'Event Reminder: ' . $event->title)
+@section('title', 'Registration Confirmed - ' . $event->title)
 
 @section('content')
 {{-- Badge --}}
 @component('emails.components.badge', [
-    'bgColor' => $reminderType === 'h0' ? '#fee2e2' : '#fef3c7',
-    'textColor' => $reminderType === 'h0' ? '#dc2626' : '#d97706'
+    'bgColor' => '#dcfce7',
+    'textColor' => '#15803d'
 ])
-    {{ $reminderType === 'h0' ? 'Starting in 1 Hour' : "Tomorrow's Event" }}
+    Registration Confirmed
 @endcomponent
 
 {{-- Title and Greeting --}}
 <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
     <td align="center" style="padding-bottom: 24px;">
-      <h1 class="h1-mobile" style="margin: 0; font-size: 24px; color: #1e293b; font-weight: 700;">Event Reminder</h1>
+      <h1 class="h1-mobile" style="margin: 0; font-size: 24px; color: #1e293b; font-weight: 700;">You're Registered!</h1>
       <p style="margin: 12px 0 0 0; color: #64748b; font-size: 16px;">
-        Hello {{ $user->name }}, {{ $reminderType === 'h0' ? "your event starts in 1 hour!" : "your event starts tomorrow." }}
+        Hello {{ $user->name }}, your registration is confirmed.
       </p>
     </td>
   </tr>
@@ -28,7 +28,7 @@
   <tr>
     <td style="padding-bottom: 32px;">
       <p style="margin: 0; color: #475569; font-size: 16px; line-height: 1.6;">
-        This is a reminder for the event you have registered for. Please check the details below to ensure you're ready.
+        You have successfully registered for the following event. We look forward to seeing you there!
       </p>
     </td>
   </tr>
@@ -38,11 +38,11 @@
 @component('emails.components.detail-table', ['title' => $event->title])
     <tr>
       <td class="label">Start Time</td>
-      <td class="value">{{ $eventDate }} at {{ $eventTime }}</td>
+      <td class="value">{{ $event->start_date->format('l, d F Y') }} at {{ $event->start_date->format('H:i') }}</td>
     </tr>
     <tr>
       <td class="label">End Time</td>
-      <td class="value">{{ $eventEndDate }} at {{ $eventEndTime }}</td>
+      <td class="value">{{ $event->end_date->format('l, d F Y') }} at {{ $event->end_date->format('H:i') }}</td>
     </tr>
 
     @if($event->location)
@@ -67,19 +67,21 @@
     @endif
 @endcomponent
 
-{{-- Description --}}
-@if($event->description)
-<table width="100%" cellpadding="0" cellspacing="0" border="0">
-  <tr>
-    <td style="padding-top: 32px;">
-      <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #1e293b;">About the Event</h3>
-      <p style="margin: 0; color: #64748b; font-size: 15px;">{{ Str::limit($event->description, 200) }}</p>
-    </td>
-  </tr>
-</table>
-@endif
+{{-- QR Code Info --}}
+@component('emails.components.info-box', [
+    'title' => 'Attendance QR Code',
+    'bgColor' => '#f0f9ff',
+    'borderColor' => '#0284c7'
+])
+    <p style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.6;">
+      Your unique QR code is ready for attendance check-in. You can view and download it from your event dashboard.
+    </p>
+    <p style="margin: 0; font-size: 14px; line-height: 1.6; font-weight: 600;">
+      QR Code: {{ $participant->qr_code_string ?? 'Available in dashboard' }}
+    </p>
+@endcomponent
 
-{{-- Important Info --}}
+{{-- Important Reminders --}}
 @component('emails.components.info-box', [
     'title' => 'Important Reminders',
     'bgColor' => '#fffbeb',
@@ -87,13 +89,13 @@
 ])
     <ul style="margin: 0; padding-left: 20px; color: #475569; font-size: 14px;">
       <li style="margin-bottom: 4px;">Please arrive 15 minutes early for check-in.</li>
-      <li style="margin-bottom: 4px;">Have your registration confirmation ready.</li>
-      <li>Bring your QR code for attendance verification.</li>
+      <li style="margin-bottom: 4px;">Bring your registration confirmation.</li>
+      <li>Don't forget to check in using your QR code.</li>
     </ul>
 @endcomponent
 
 {{-- CTA Button --}}
 @component('emails.components.button', ['url' => config('app.frontend_url') . '/events/' . $event->id])
-    View Full Event Details
+    View Event Details
 @endcomponent
 @endsection

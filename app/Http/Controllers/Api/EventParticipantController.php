@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\RegistrationConfirmationMail;
+use App\Mail\Organizer\QuotaFullMail;
 
 class EventParticipantController extends Controller
 {
@@ -102,6 +105,34 @@ class EventParticipantController extends Controller
             ]);
 
             DB::commit();
+
+            // Send registration confirmation email
+            try {
+                Mail::to($user->email)->send(new RegistrationConfirmationMail($event, $user, $participant));
+            } catch (\Exception $e) {
+                \Log::error('Failed to send registration confirmation email: ' . $e->getMessage());
+            }
+
+            // Check if event is now full and send quota full alert to organizer
+            $event->refresh(); // Reload to get updated registered_count
+            if ($event->quota && $event->registered_count >= $event->quota && !$event->quota_full_notified) {
+                try {
+                    // Calculate total revenue if paid event
+                    $totalRevenue = null;
+                    if ($event->is_paid) {
+                        $totalRevenue = EventParticipant::where('event_id', $event->id)
+                            ->where('is_paid', true)
+                            ->sum('amount_paid');
+                    }
+
+                    Mail::to($event->organizer->email)->send(new QuotaFullMail($event, $event->organizer, $totalRevenue));
+
+                    // Mark as notified
+                    $event->update(['quota_full_notified' => true]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send quota full alert: ' . $e->getMessage());
+                }
+            }
 
             // Prepare response data with user-specific QR code
             $responseData = [

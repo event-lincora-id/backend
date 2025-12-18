@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\InvoiceCreatedMail;
 
 class PaymentController extends Controller
 {
@@ -179,7 +181,7 @@ class PaymentController extends Controller
                 'error' => $result['error'] ?? 'Unknown error',
                 'result' => $result
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Payment creation failed: ' . ($result['error'] ?? 'Unknown error'),
@@ -189,6 +191,21 @@ class PaymentController extends Controller
                     'payment_url' => $result['payment_url'] ?? $result['invoice_url'] ?? null,
                 ]
             ], 500);
+        }
+
+        // Send invoice email for invoice payment method
+        if ($request->payment_method === 'invoice') {
+            $invoiceUrl = $result['payment_url'] ?? $result['invoice_url'] ?? null;
+            if ($invoiceUrl) {
+                try {
+                    Mail::to($user->email)->send(new InvoiceCreatedMail($event, $user, $participant, $invoiceUrl));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send invoice email', [
+                        'participant_id' => $participant->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
         }
 
         return response()->json([
@@ -474,6 +491,21 @@ class PaymentController extends Controller
                 'message' => 'Payment retry failed',
                 'error' => $result['error'] ?? 'Unknown error'
             ], 500);
+        }
+
+        // Send invoice email for invoice payment method
+        if ($request->payment_method === 'invoice') {
+            $invoiceUrl = $result['payment_url'] ?? $result['invoice_url'] ?? null;
+            if ($invoiceUrl) {
+                try {
+                    Mail::to($user->email)->send(new InvoiceCreatedMail($participant->event, $user, $participant, $invoiceUrl));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send invoice email on retry', [
+                        'participant_id' => $participant->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
         }
 
         return response()->json([

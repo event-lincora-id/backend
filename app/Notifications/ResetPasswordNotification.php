@@ -29,11 +29,10 @@ class ResetPasswordNotification extends Notification implements ShouldQueue
         $resetUrl = "{$frontendUrl}/reset-password/{$this->token}?email={$notifiable->email}";
 
         return (new MailMessage)
-            ->subject('Reset Password - Event Connect')
-            ->greeting('Hello!')
-            ->line('You are receiving this email because we received a password reset request for your account.')
-            ->action('Reset Password', $resetUrl)
-            ->line('This password reset link will expire in 60 minutes.')
-            ->line('If you did not request a password reset, no further action is required.');
+            ->subject('Reset Password - ' . config('app.name'))
+            ->view('emails.auth.reset-password', [
+                'resetUrl' => $resetUrl,
+                'user' => $notifiable
+            ]);
     }
 }
