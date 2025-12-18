@@ -45,17 +45,32 @@
       <td class="value">{{ $eventEndDate }} at {{ $eventEndTime }}</td>
     </tr>
 
-    @if($event->location)
+    @if($event->event_type)
+    <tr>
+      <td class="label">Event Type</td>
+      <td class="value">
+        <span style="display: inline-block; padding: 4px 12px; background-color: {{ $event->event_type === 'online' ? '#dbeafe' : ($event->event_type === 'hybrid' ? '#fef3c7' : '#f3f4f6') }}; color: {{ $event->event_type === 'online' ? '#1e40af' : ($event->event_type === 'hybrid' ? '#d97706' : '#374151') }}; border-radius: 12px; font-size: 12px; font-weight: 600;">
+          {{ ucfirst($event->event_type) }}
+        </span>
+      </td>
+    </tr>
+    @endif
+
+    @if($event->location && in_array($event->event_type, ['offline', 'hybrid']))
     <tr>
       <td class="label">Location</td>
       <td class="value">{{ $event->location }}</td>
     </tr>
     @endif
 
-    @if($event->event_type)
+    @if($event->meeting_link && in_array($event->event_type, ['online', 'hybrid']))
     <tr>
-      <td class="label">Type</td>
-      <td class="value">{{ ucfirst($event->event_type) }}</td>
+      <td class="label">Meeting Link</td>
+      <td class="value">
+        <a href="{{ $event->meeting_link }}" target="_blank" style="color: #3b82f6; word-break: break-all;">
+          {{ Str::limit($event->meeting_link, 60) }}
+        </a>
+      </td>
     </tr>
     @endif
 
@@ -66,6 +81,17 @@
     </tr>
     @endif
 @endcomponent
+
+{{-- Join Online Meeting Button or Pending Notice --}}
+@if(in_array($event->event_type, ['online', 'hybrid']))
+  @if($event->meeting_link)
+    @component('emails.components.join-meeting-button', ['meetingLink' => $event->meeting_link])
+    @endcomponent
+  @else
+    @component('emails.components.meeting-link-pending', ['eventId' => $event->id])
+    @endcomponent
+  @endif
+@endif
 
 {{-- Description --}}
 @if($event->description)

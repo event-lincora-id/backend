@@ -17,6 +17,7 @@ class Event extends Model
         'title',
         'description',
         'location',
+        'meeting_link',
         'event_type',
         'contact_info',
         'requirements',

@@ -301,14 +301,29 @@ class PaymentService
                     ]);
 
                     // Send payment success email to participant
+                    Log::info('🔍 Attempting to send payment success email', [
+                        'participant_id' => $participant->id,
+                        'participant_email' => $participant->user->email ?? 'NULL',
+                        'event_id' => $participant->event_id,
+                        'event_title' => $participant->event->title ?? 'N/A',
+                        'payment_status' => $participant->payment_status,
+                    ]);
+
                     try {
                         Mail::to($participant->user->email)->send(
                             new PaymentSuccessMail($participant->event, $participant->user, $participant)
                         );
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send payment success email', [
+
+                        Log::info('✅ Payment success email sent successfully', [
                             'participant_id' => $participant->id,
-                            'error' => $e->getMessage()
+                            'email' => $participant->user->email,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('❌ Failed to send payment success email', [
+                            'participant_id' => $participant->id,
+                            'email' => $participant->user->email ?? 'NULL',
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
                         ]);
                     }
 

@@ -289,6 +289,31 @@ class PaymentController extends Controller
                             'event_id' => $participant->event_id,
                             'new_count' => $participant->event->fresh()->registered_count,
                         ]);
+
+                        // Send payment success email (since webhook is not working)
+                        Log::info('🔍 Attempting to send payment success email via status check', [
+                            'participant_id' => $participant->id,
+                            'participant_email' => $participant->user->email ?? 'NULL',
+                            'event_id' => $participant->event_id,
+                        ]);
+
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($participant->user->email)->send(
+                                new \App\Mail\PaymentSuccessMail($participant->event, $participant->user, $participant)
+                            );
+
+                            Log::info('✅ Payment success email sent successfully via status check', [
+                                'participant_id' => $participant->id,
+                                'email' => $participant->user->email,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('❌ Failed to send payment success email via status check', [
+                                'participant_id' => $participant->id,
+                                'email' => $participant->user->email ?? 'NULL',
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString(),
+                            ]);
+                        }
                     }
                 }
             }

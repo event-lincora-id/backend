@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\Mail;
 
 $testEmail = 'lkings013@gmail.com'; // Change to your email
 
-$event = \App\Models\Event::first();
-$user = \App\Models\User::first();
-$participant = \App\Models\EventParticipant::first();
+$event = \App\Models\Event::find(16);
+$user = \App\Models\User::find(21);
+$participant = \App\Models\EventParticipant::find(21);
 
 if (!$event || !$user || !$participant) {
     die("Please create test data first\n");

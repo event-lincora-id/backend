@@ -5,7 +5,6 @@ namespace App\Mail;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\EventParticipant;
-use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -13,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 
 class PaymentSuccessMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use SerializesModels;  // Removed Queueable to send emails immediately
 
     public Event $event;
     public User $user;

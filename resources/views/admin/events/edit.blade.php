@@ -94,6 +94,20 @@
                     @enderror
                 </div>
 
+                <!-- Meeting Link (for Online/Hybrid Events) -->
+                <div id="meeting-link-container">
+                    <label for="meeting_link" class="block text-sm font-medium text-gray-700">
+                        Meeting Link <span class="text-xs text-gray-500">(for Online/Hybrid events)</span>
+                    </label>
+                    <input type="url" name="meeting_link" id="meeting_link" value="{{ old('meeting_link', $event->meeting_link) }}"
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('meeting_link') border-red-500 @enderror"
+                           placeholder="https://meet.google.com/xxx or https://zoom.us/j/xxx">
+                    <p class="mt-1 text-xs text-gray-500">Enter the Zoom, Google Meet, Teams, or other meeting platform link</p>
+                    @error('meeting_link')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 <!-- Date and Time -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -242,10 +256,13 @@ document.getElementById('start_date').addEventListener('change', function() {
     const startDate = new Date(this.value);
     const endDateInput = document.getElementById('end_date');
     endDateInput.min = this.value;
-    
+
     if (endDateInput.value && new Date(endDateInput.value) <= startDate) {
         endDateInput.value = '';
     }
 });
+
+// Meeting link field is always visible
+// Backend validation will handle required logic based on event type
 </script>
 @endsection
