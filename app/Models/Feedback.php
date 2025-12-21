@@ -18,6 +18,7 @@ class Feedback extends Model
         'comment',
         'certificate_generated',
         'certificate_path',
+        'verification_code',
     ];
 
     protected function casts(): array

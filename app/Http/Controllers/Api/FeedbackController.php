@@ -10,7 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 /**
  * @OA\Tag(
@@ -378,6 +380,28 @@ class FeedbackController extends Controller
         $event = $feedback->event;
         $user = $feedback->user;
 
+        // Generate unique verification code
+        $verificationCode = 'CERT-' . strtoupper(Str::random(10)) . '-' . $event->id;
+
+        // Generate QR code (SVG format to avoid imagick dependency)
+        $qrCodePath = 'qr_codes/certificates/' . $verificationCode . '.svg';
+        $qrCodeFullPath = storage_path('app/public/' . $qrCodePath);
+
+        // Ensure directory exists
+        $qrCodeDir = dirname($qrCodeFullPath);
+        if (!file_exists($qrCodeDir)) {
+            mkdir($qrCodeDir, 0755, true);
+        }
+
+        // Generate QR code with verification URL
+        $verificationUrl = config('app.url') . '/verify/' . $verificationCode;
+        QrCode::format('svg')
+            ->size(200)
+            ->margin(1)
+            ->errorCorrection('M')
+            ->generate($verificationUrl, $qrCodeFullPath);
+
+        // Generate certificate PDF
         $filename = 'certificate_' . $event->id . '_' . $user->id . '_' . time() . '.pdf';
         $certificatePath = 'certificates/' . $filename;
 
@@ -385,14 +409,17 @@ class FeedbackController extends Controller
             'event' => $event,
             'user' => $user,
             'feedback' => $feedback,
-            'date' => now()->format('F j, Y')
+            'date' => now()->format('F j, Y'),
+            'qrCodePath' => $qrCodeFullPath,
+            'verificationCode' => $verificationCode
         ]);
 
         Storage::disk('public')->put($certificatePath, $pdf->output());
 
         $feedback->update([
             'certificate_generated' => true,
-            'certificate_path' => $certificatePath
+            'certificate_path' => $certificatePath,
+            'verification_code' => $verificationCode
         ]);
     }
 }

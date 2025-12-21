@@ -119,6 +119,12 @@ Route::middleware(['auth', 'role:participant'])->group(function () {
     Route::get('/feedback/certificate/{event}/view', [WebFeedbackController::class, 'viewCertificate'])->name('feedback.certificate.view');
 });
 
+// Certificate verification routes (public)
+Route::get('/verify/{verificationCode}', [App\Http\Controllers\CertificateVerificationController::class, 'verify'])
+    ->name('certificate.verify');
+Route::get('/verify/{verificationCode}/download', [App\Http\Controllers\CertificateVerificationController::class, 'download'])
+    ->name('certificate.download');
+
 Route::get('/test-feedback-summary', function () {
     return view('test-feedback-summary');
 });

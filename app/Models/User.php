@@ -27,6 +27,8 @@ class User extends Authenticatable
         'phone',
         'bio',
         'avatar',
+        'logo',
+        'signature',
         'password',
     ];
 
@@ -111,5 +113,16 @@ class User extends Authenticatable
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new ResetPasswordNotification($token));
+    }
+
+    // Accessor methods for file URLs
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo ? asset('storage/' . $this->logo) : null;
+    }
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        return $this->signature ? asset('storage/' . $this->signature) : null;
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -36,7 +37,9 @@ class ProfileController extends Controller
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'bio' => 'nullable|string|max:1000',
-            'avatar' => 'nullable|string|max:255',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'signature' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -47,7 +50,47 @@ class ProfileController extends Controller
             ], 422);
         }
 
-        $user->update($request->only(['full_name', 'email', 'phone', 'bio', 'avatar']));
+        $data = $request->only(['full_name', 'email', 'phone', 'bio']);
+
+        // Handle avatar upload
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar) {
+                Storage::disk('public')->delete($user->avatar);
+            }
+            $data['avatar'] = $request->file('avatar')->store('organizers', 'public');
+        }
+
+        // Handle logo upload (organizers only)
+        if ($request->hasFile('logo')) {
+            if (!$user->isOrganizer()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only organizers can upload logos'
+                ], 403);
+            }
+
+            if ($user->logo) {
+                Storage::disk('public')->delete($user->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('organizers', 'public');
+        }
+
+        // Handle signature upload (organizers only)
+        if ($request->hasFile('signature')) {
+            if (!$user->isOrganizer()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only organizers can upload signatures'
+                ], 403);
+            }
+
+            if ($user->signature) {
+                Storage::disk('public')->delete($user->signature);
+            }
+            $data['signature'] = $request->file('signature')->store('organizers', 'public');
+        }
+
+        $user->update($data);
 
         return response()->json([
             'success' => true,
