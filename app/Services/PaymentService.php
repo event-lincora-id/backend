@@ -346,6 +346,16 @@ class PaymentService
                         }
                     }
 
+                    // Add balance to organizer (NEW)
+                    try {
+                        app(\App\Services\BalanceService::class)->addPaymentToBalance($participant);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to add payment to organizer balance', [
+                            'participant_id' => $participant->id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+
                     Log::info('Participant registered after payment', [
                         'participant_id' => $participant->id,
                         'event_id' => $participant->event_id,

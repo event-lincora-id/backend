@@ -109,6 +109,22 @@ class User extends Authenticatable
         return $this->hasMany(Notification::class);
     }
 
+    // Finance relationships (NEW)
+    public function organizerBalance()
+    {
+        return $this->hasOne(OrganizerBalance::class, 'user_id');
+    }
+
+    public function withdrawalRequests()
+    {
+        return $this->hasMany(WithdrawalRequest::class, 'user_id');
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'user_id');
+    }
+
     // Override password reset notification to use custom notification
     public function sendPasswordResetNotification($token)
     {

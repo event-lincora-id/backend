@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\SuperAdminController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AdminDashboardController; // Add this import
 use App\Http\Controllers\Api\FeedbackSummaryController;
+use App\Http\Controllers\Api\WithdrawalController;
+use App\Http\Controllers\Api\AdminWithdrawalController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -92,6 +94,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('statistics', [PaymentController::class, 'getPaymentStatistics']);
     });
 
+    // Withdrawal & Balance routes (Event Organizers)
+    Route::prefix('withdrawals')->group(function () {
+        Route::post('request', [WithdrawalController::class, 'requestWithdrawal']);
+        Route::get('history', [WithdrawalController::class, 'getHistory']);
+        Route::get('{withdrawal}', [WithdrawalController::class, 'show']);
+    });
+
+    Route::prefix('balance')->group(function () {
+        Route::get('dashboard', [WithdrawalController::class, 'getBalanceDashboard']);
+    });
+
     // Feedback routes
     Route::prefix('feedbacks')->group(function () {
         Route::post('{event}', [FeedbackController::class, 'store']);
@@ -145,6 +158,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('organizers/{id}/toggle-status', [SuperAdminController::class, 'toggleOrganizerStatus']);
         Route::get('events', [SuperAdminController::class, 'getAllEvents']);
         Route::get('statistics', [SuperAdminController::class, 'getStatistics']);
+    });
+
+    // Admin Withdrawal Management routes (Super Admin only)
+    Route::prefix('admin/withdrawals')->middleware('role:super_admin')->group(function () {
+        Route::get('/', [AdminWithdrawalController::class, 'index']);
+        Route::get('{withdrawal}', [AdminWithdrawalController::class, 'show']);
+        Route::post('{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
+        Route::post('{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
     });
     
     // Notification routes
