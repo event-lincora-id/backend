@@ -27,6 +27,7 @@ class Event extends Model
         'price',
         'quota',
         'registered_count',
+        'quota_full_notified',
         'image',
         'qr_code',
         'qr_code_string',

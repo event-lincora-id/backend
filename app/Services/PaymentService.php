@@ -228,6 +228,14 @@ class PaymentService
     public function handleWebhook(array $webhookData)
     {
         try {
+            // Check if this is a test webhook (missing external_id)
+            if (!isset($webhookData['external_id']) || empty($webhookData['external_id'])) {
+                Log::info('Test webhook received (no external_id) - ignoring', [
+                    'webhook_data' => $webhookData
+                ]);
+                return true; // Return true so Xendit test passes
+            }
+
             $externalId = $webhookData['external_id'];
             $status = $webhookData['status'];
             $paymentMethod = $webhookData['payment_method'] ?? 'unknown';
@@ -253,8 +261,11 @@ class PaymentService
                 // Old format: event_ewallet_{participantId}
                 $participantId = explode('_', $externalId)[2];
             } else {
-                Log::warning('Unknown external_id format in webhook', ['external_id' => $externalId]);
-                return false;
+                Log::info('Test/Unknown external_id format in webhook - ignoring', [
+                    'external_id' => $externalId,
+                    'status' => $status
+                ]);
+                return true; // Return true for test webhooks
             }
 
             Log::info('Extracted participant ID from webhook', [
@@ -354,6 +365,34 @@ class PaymentService
                             'participant_id' => $participant->id,
                             'error' => $e->getMessage()
                         ]);
+                    }
+
+                    // Check if event is now full and send quota full alert to organizer
+                    $participant->event->refresh(); // Reload to get updated registered_count
+                    if ($participant->event->quota && $participant->event->registered_count >= $participant->event->quota && !$participant->event->quota_full_notified) {
+                        try {
+                            $totalRevenue = EventParticipant::where('event_id', $participant->event_id)
+                                ->where('is_paid', true)
+                                ->sum('amount_paid');
+
+                            Mail::to($participant->event->organizer->email)->send(
+                                new \App\Mail\Organizer\QuotaFullMail($participant->event, $participant->event->organizer, $totalRevenue)
+                            );
+
+                            // Mark as notified
+                            $participant->event->update(['quota_full_notified' => true]);
+
+                            Log::info('Quota full notification sent via webhook', [
+                                'event_id' => $participant->event_id,
+                                'registered_count' => $participant->event->registered_count,
+                                'quota' => $participant->event->quota,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send quota full alert via webhook', [
+                                'event_id' => $participant->event_id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
                     }
 
                     Log::info('Participant registered after payment', [

@@ -290,7 +290,38 @@ class PaymentController extends Controller
                             'new_count' => $participant->event->fresh()->registered_count,
                         ]);
 
-                        // Send payment success email (since webhook is not working)
+                        // Add payment to organizer balance
+                        try {
+                            app(\App\Services\BalanceService::class)->addPaymentToBalance($participant->fresh());
+                        } catch (\Exception $e) {
+                            Log::error('Failed to add payment to organizer balance via status check', [
+                                'participant_id' => $participant->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+
+                        // Create notification for organizer
+                        try {
+                            \App\Models\Notification::create([
+                                'user_id' => $participant->event->user_id,
+                                'event_id' => $participant->event_id,
+                                'type' => 'event_registration',
+                                'title' => 'New Paid Event Registration',
+                                'message' => $participant->user->full_name . ' has registered and paid for: ' . $participant->event->title,
+                                'data' => [
+                                    'participant_id' => $participant->id,
+                                    'participant_name' => $participant->user->full_name,
+                                    'amount_paid' => $participant->amount_paid
+                                ]
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('Failed to create organizer notification via status check', [
+                                'participant_id' => $participant->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+
+                        // Send payment success email to participant
                         Log::info('🔍 Attempting to send payment success email via status check', [
                             'participant_id' => $participant->id,
                             'participant_email' => $participant->user->email ?? 'NULL',
@@ -313,6 +344,55 @@ class PaymentController extends Controller
                                 'error' => $e->getMessage(),
                                 'trace' => $e->getTraceAsString(),
                             ]);
+                        }
+
+                        // Send organizer notification email
+                        try {
+                            $totalRevenue = \App\Models\EventParticipant::where('event_id', $participant->event_id)
+                                ->where('is_paid', true)
+                                ->sum('amount_paid');
+
+                            \Illuminate\Support\Facades\Mail::to($participant->event->organizer->email)->send(
+                                new \App\Mail\Organizer\ParticipantJoinMail($participant->event, $participant->event->organizer, $participant, $totalRevenue)
+                            );
+
+                            Log::info('✅ Organizer notification email sent via status check', [
+                                'participant_id' => $participant->id,
+                                'organizer_email' => $participant->event->organizer->email,
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('❌ Failed to send organizer notification email via status check', [
+                                'participant_id' => $participant->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+
+                        // Check if event is now full and send quota full alert to organizer
+                        $participant->event->refresh(); // Reload to get updated registered_count
+                        if ($participant->event->quota && $participant->event->registered_count >= $participant->event->quota && !$participant->event->quota_full_notified) {
+                            try {
+                                $totalRevenue = \App\Models\EventParticipant::where('event_id', $participant->event_id)
+                                    ->where('is_paid', true)
+                                    ->sum('amount_paid');
+
+                                \Illuminate\Support\Facades\Mail::to($participant->event->organizer->email)->send(
+                                    new \App\Mail\Organizer\QuotaFullMail($participant->event, $participant->event->organizer, $totalRevenue)
+                                );
+
+                                // Mark as notified
+                                $participant->event->update(['quota_full_notified' => true]);
+
+                                Log::info('✅ Quota full notification sent via status check', [
+                                    'event_id' => $participant->event_id,
+                                    'registered_count' => $participant->event->registered_count,
+                                    'quota' => $participant->event->quota,
+                                ]);
+                            } catch (\Exception $e) {
+                                Log::error('❌ Failed to send quota full alert via status check', [
+                                    'event_id' => $participant->event_id,
+                                    'error' => $e->getMessage()
+                                ]);
+                            }
                         }
                     }
                 }
