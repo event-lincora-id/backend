@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\EventUpdateNotificationMail;
 
 class EventController extends Controller
 {
@@ -283,6 +285,14 @@ class EventController extends Controller
 
         $data = $request->all();
 
+        // Capture old values before update for change detection
+        $oldValues = [
+            'location' => $event->location,
+            'meeting_link' => $event->meeting_link,
+            'start_date' => $event->start_date,
+            'end_date' => $event->end_date,
+        ];
+
         // Handle image upload
         if ($request->hasFile('image')) {
             // Delete old image
@@ -295,10 +305,70 @@ class EventController extends Controller
         $event->update($data);
         $event->load(['organizer', 'category']);
 
+        // Detect changes and notify participants
+        $changes = [];
+
+        if ($oldValues['location'] !== $event->location && $event->location) {
+            $changes[] = [
+                'field' => 'location',
+                'label' => 'Event Location',
+                'old' => $oldValues['location'] ?: 'Not set',
+                'new' => $event->location,
+            ];
+        }
+
+        if ($oldValues['meeting_link'] !== $event->meeting_link && $event->meeting_link) {
+            $changes[] = [
+                'field' => 'meeting_link',
+                'label' => 'Meeting Link',
+                'old' => $oldValues['meeting_link'] ?: 'Not set',
+                'new' => $event->meeting_link,
+            ];
+        }
+
+        if ($oldValues['start_date'] && !$oldValues['start_date']->eq($event->start_date)) {
+            $changes[] = [
+                'field' => 'start_date',
+                'label' => 'Start Date & Time',
+                'old' => $oldValues['start_date']->format('l, d F Y \a\t H:i'),
+                'new' => $event->start_date->format('l, d F Y \a\t H:i'),
+            ];
+        }
+
+        if ($oldValues['end_date'] && !$oldValues['end_date']->eq($event->end_date)) {
+            $changes[] = [
+                'field' => 'end_date',
+                'label' => 'End Date & Time',
+                'old' => $oldValues['end_date']->format('l, d F Y \a\t H:i'),
+                'new' => $event->end_date->format('l, d F Y \a\t H:i'),
+            ];
+        }
+
+        // Send email notifications to all participants if there are changes
+        if (!empty($changes)) {
+            $participants = $event->participants()
+                ->with('user')
+                ->whereIn('payment_status', ['paid', 'free'])
+                ->get();
+
+            foreach ($participants as $participant) {
+                if ($participant->user && $participant->user->email) {
+                    try {
+                        Mail::to($participant->user->email)->send(
+                            new EventUpdateNotificationMail($event, $changes, $participant->user->name)
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to send event update email: ' . $e->getMessage());
+                    }
+                }
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Event updated successfully',
-            'data' => $event
+            'data' => $event,
+            'notifications_sent' => count($changes) > 0 ? true : false,
         ]);
     }
 

@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -12,7 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -30,6 +31,7 @@ class User extends Authenticatable
         'logo',
         'signature',
         'password',
+        'suspended_at',
     ];
 
     /**
@@ -43,6 +45,13 @@ class User extends Authenticatable
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['logo_url', 'signature_url'];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -52,6 +61,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'suspended_at' => 'datetime',
             // is_organizer removed; organizer determined by role
         ];
     }
@@ -86,6 +96,29 @@ class User extends Authenticatable
     public function canCreateEvents()
     {
         return $this->isOrganizer();
+    }
+
+    // Suspension checking methods
+    public function isSuspended()
+    {
+        return $this->suspended_at !== null;
+    }
+
+    public function isActive()
+    {
+        return $this->suspended_at === null;
+    }
+
+    public function suspend()
+    {
+        $this->suspended_at = now();
+        $this->save();
+    }
+
+    public function activate()
+    {
+        $this->suspended_at = null;
+        $this->save();
     }
 
     // Relationships

@@ -165,4 +165,148 @@ class ProfileController extends Controller
             'data' => $user->fresh()
         ]);
     }
+
+    /**
+     * Upload logo (organizers only)
+     */
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Check if user is organizer
+        if ($user->role !== 'admin' && $user->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only organizers can upload logos'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'logo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Delete old logo if exists
+        if ($user->logo) {
+            Storage::disk('public')->delete($user->logo);
+        }
+
+        // Store new logo
+        $logoPath = $request->file('logo')->store('organizers', 'public');
+        $user->update(['logo' => $logoPath]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logo uploaded successfully',
+            'data' => [
+                'logo' => $logoPath,
+                'logo_url' => Storage::disk('public')->url($logoPath)
+            ]
+        ]);
+    }
+
+    /**
+     * Upload signature (organizers only)
+     */
+    public function uploadSignature(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Check if user is organizer
+        if ($user->role !== 'admin' && $user->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only organizers can upload signatures'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'signature' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Delete old signature if exists
+        if ($user->signature) {
+            Storage::disk('public')->delete($user->signature);
+        }
+
+        // Store new signature
+        $signaturePath = $request->file('signature')->store('organizers', 'public');
+        $user->update(['signature' => $signaturePath]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Signature uploaded successfully',
+            'data' => [
+                'signature' => $signaturePath,
+                'signature_url' => Storage::disk('public')->url($signaturePath)
+            ]
+        ]);
+    }
+
+    /**
+     * Delete logo
+     */
+    public function deleteLogo(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->logo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No logo to delete'
+            ], 404);
+        }
+
+        // Delete file from storage
+        Storage::disk('public')->delete($user->logo);
+
+        // Update user record
+        $user->update(['logo' => null]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logo deleted successfully'
+        ]);
+    }
+
+    /**
+     * Delete signature
+     */
+    public function deleteSignature(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->signature) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No signature to delete'
+            ], 404);
+        }
+
+        // Delete file from storage
+        Storage::disk('public')->delete($user->signature);
+
+        // Update user record
+        $user->update(['signature' => null]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Signature deleted successfully'
+        ]);
+    }
 }

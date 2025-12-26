@@ -60,6 +60,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/', [ProfileController::class, 'update']);
         Route::post('change-password', [ProfileController::class, 'changePassword']);
         Route::post('update-organizer-status', [ProfileController::class, 'updateOrganizerStatus']);
+
+        // Logo and signature upload/delete
+        Route::post('logo', [ProfileController::class, 'uploadLogo']);
+        Route::post('signature', [ProfileController::class, 'uploadSignature']);
+        Route::delete('logo', [ProfileController::class, 'deleteLogo']);
+        Route::delete('signature', [ProfileController::class, 'deleteSignature']);
     });
 
     // Event routes
@@ -153,6 +159,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Super Admin routes
     Route::prefix('super-admin')->middleware('role:super_admin')->group(function () {
+        Route::get('users', [SuperAdminController::class, 'getAllUsers']);
+        Route::post('users/{user}/suspend', [SuperAdminController::class, 'suspendUser']);
+        Route::post('users/{user}/activate', [SuperAdminController::class, 'activateUser']);
+        Route::delete('users/{user}', [SuperAdminController::class, 'deleteUser']);
         Route::get('organizers', [SuperAdminController::class, 'getOrganizers']);
         Route::get('organizers/{id}', [SuperAdminController::class, 'getOrganizerDetails']);
         Route::post('organizers/{id}/toggle-status', [SuperAdminController::class, 'toggleOrganizerStatus']);
