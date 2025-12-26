@@ -136,8 +136,8 @@ class SendEventSummaries extends Command
 
         $attendanceRate = $totalRegistered > 0 ? ($totalAttended / $totalRegistered) * 100 : 0;
 
-        // Get feedback data (assuming feedback table exists)
-        $feedbackData = DB::table('event_feedback')
+        // Get feedback data
+        $feedbackData = DB::table('feedbacks')
             ->where('event_id', $event->id)
             ->select(DB::raw('COUNT(*) as total'), DB::raw('AVG(rating) as avg_rating'))
             ->first();
@@ -170,7 +170,7 @@ class SendEventSummaries extends Command
     private function generateFeedbackSummary(Event $event): ?string
     {
         // Get all feedback for the event
-        $feedbacks = DB::table('event_feedback')
+        $feedbacks = DB::table('feedbacks')
             ->where('event_id', $event->id)
             ->select('rating', 'comment')
             ->get()

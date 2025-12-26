@@ -65,9 +65,15 @@ class EventController extends Controller
             $query->whereIn('category_id', $request->category_ids);
         }
 
-        // Filter by paid/free
-        if ($request->has('is_paid')) {
-            $query->where('is_paid', $request->boolean('is_paid'));
+        // Filter by paid/free - based on price, not is_paid column
+        if ($request->has('is_paid') && $request->is_paid !== '' && $request->is_paid !== null) {
+            if ($request->is_paid == '0' || $request->is_paid === 'false' || $request->is_paid === false) {
+                // Free events: price = 0
+                $query->where('price', 0);
+            } elseif ($request->is_paid == '1' || $request->is_paid === 'true' || $request->is_paid === true) {
+                // Paid events: price > 0
+                $query->where('price', '>', 0);
+            }
         }
 
         // Filter by price range
