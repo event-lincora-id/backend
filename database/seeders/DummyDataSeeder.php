@@ -11,378 +11,511 @@ use App\Models\Event;
 use App\Models\EventParticipant;
 use App\Models\Feedback;
 use App\Models\Notification;
-use Carbon\Carbon;
 
 class DummyDataSeeder extends Seeder
 {
+    // Use Indonesian locale
+    protected $faker;
+
     public function run(): void
     {
-        $this->clearExistingData();
-        $this->seedUsers();
-        $this->seedCategories();
-        $this->seedEvents();
-        $this->seedEventParticipants();
-        $this->seedFeedbacks();
-        $this->seedNotifications();
+        $this->faker = \Faker\Factory::create('id_ID');
 
-        $this->command->info('✅ Dummy data seeded successfully!');
-    }
-
-    private function clearExistingData()
-    {
-        $this->command->info('🧹 Clearing existing data...');
+        // $this->clearExistingData(); // DISABLED to preserve data
         
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        Notification::truncate();
-        Feedback::truncate();
-        EventParticipant::truncate();
-        Event::truncate();
-        Category::truncate();
-        User::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // 1. Seed Users (Admins & Participants)
+        $admins = $this->seedAdmins();
+        $participants = $this->seedParticipants();
+        
+        // 2. Seed Categories
+        $categories = $this->seedCategories();
+        
+        // 3. Seed Events (Real Data)
+        $events = $this->seedRealEvents($admins, $categories);
+        
+        // 4. Seed Random Events (to fill up)
+        $this->seedRandomEvents($admins, $categories);
+        $allEvents = Event::all();
+
+        // 5. Seed Event Participants (Registrations)
+        $this->seedEventParticipants($allEvents, $participants);
+        
+        // 6. Seed Feedbacks
+        $this->seedFeedbacks($allEvents, $participants);
+        
+        // 7. Seed Notifications
+        $this->seedNotifications($participants, $allEvents);
+
+        $this->command->info('✅ Dummy data seeded successfully (Additive Mode)!');
     }
 
-    private function seedUsers()
+    private function seedAdmins()
     {
-        $this->command->info('👥 Seeding users...');
+        $this->command->info('👥 Seeding admins (Checking existence)...');
 
-        $users = [
-            // Admin Users
+        $admins = [
             [
-                'name' => 'Admin',
-                'full_name' => 'System Administrator',
-                'email' => 'admin@eventconnect.com',
-                'email_verified_at' => now(),
-                'password' => Hash::make('admin123'),
+                'name' => 'Admin TUP',
+                'full_name' => 'Administrator IT Telkom',
+                'email' => 'admin@ittelkom-pwt.ac.id',
                 'role' => 'admin',
-                'phone' => '+6281234567890',
-                'bio' => 'System administrator for Event Connect platform',
-                'avatar' => null,
-                'created_at' => now()->subDays(30),
-                'updated_at' => now()->subDays(30),
+                'bio' => 'Administrator Sistem Informasi IT Telkom Purwokerto',
+                'phone' => '081234567890',
             ],
             [
-                'name' => 'John Organizer',
-                'full_name' => 'John Smith',
-                'email' => 'john@techconf.com',
-                'email_verified_at' => now(),
-                'password' => Hash::make('password123'),
+                'name' => 'BEM Kema',
+                'full_name' => 'BEM Kema Telkom University',
+                'email' => 'bem@ittelkom-pwt.ac.id',
                 'role' => 'admin',
-                'phone' => '+6281234567891',
-                'bio' => 'Tech conference organizer with 5+ years experience',
-                'avatar' => null,
-                'created_at' => now()->subDays(25),
-                'updated_at' => now()->subDays(25),
+                'bio' => 'Badan Eksekutif Mahasiswa Keluarga Mahasiswa',
+                'phone' => '081298765432',
             ],
             [
-                'name' => 'Sarah Events',
-                'full_name' => 'Sarah Johnson',
-                'email' => 'sarah@workshop.com',
-                'email_verified_at' => now(),
-                'password' => Hash::make('password123'),
+                'name' => 'Hima IF',
+                'full_name' => 'Himpunan Mahasiswa Informatika',
+                'email' => 'himaif@ittelkom-pwt.ac.id',
                 'role' => 'admin',
-                'phone' => '+6281234567892',
-                'bio' => 'Workshop specialist and event management expert',
-                'avatar' => null,
-                'created_at' => now()->subDays(20),
-                'updated_at' => now()->subDays(20),
+                'bio' => 'Himpunan Mahasiswa S1 Informatika',
+                'phone' => '081345678901',
             ],
             [
-                'name' => 'Mike Startup',
-                'full_name' => 'Michael Brown',
-                'email' => 'mike@startup.com',
-                'email_verified_at' => now(),
-                'password' => Hash::make('password123'),
+                'name' => 'Pak Budi',
+                'full_name' => 'Budi Santoso, M.Kom',
+                'email' => 'budi@dosen.ittelkom-pwt.ac.id',
                 'role' => 'admin',
-                'phone' => '+6281234567893',
-                'bio' => 'Startup ecosystem builder and pitch competition organizer',
-                'avatar' => null,
-                'created_at' => now()->subDays(15),
-                'updated_at' => now()->subDays(15),
+                'bio' => 'Dosen Pembina Kemahasiswaan',
+                'phone' => '081456789012',
             ],
         ];
 
-        // Participant Users
-        $participantNames = [
-            ['Alice Developer', 'Alice Wilson', 'alice@developer.com', 'Full-stack developer passionate about learning new technologies', 28],
-            ['Bob Designer', 'Robert Davis', 'bob@designer.com', 'UI/UX designer with focus on user experience', 26],
-            ['Carol Manager', 'Carol Miller', 'carol@manager.com', 'Project manager with expertise in agile methodologies', 24],
-            ['David Student', 'David Garcia', 'david@student.com', 'Computer science student eager to learn and network', 22],
-            ['Eva Entrepreneur', 'Eva Rodriguez', 'eva@entrepreneur.com', 'Serial entrepreneur looking for networking opportunities', 20],
-            ['Frank Analyst', 'Frank Martinez', 'frank@analyst.com', 'Data analyst with expertise in business intelligence', 18],
-            ['Grace Marketer', 'Grace Lee', 'grace@marketer.com', 'Digital marketing specialist with social media expertise', 16],
-            ['Henry Consultant', 'Henry Kim', 'henry@consultant.com', 'Business consultant with focus on digital transformation', 14],
-            ['Ivy Researcher', 'Ivy Chen', 'ivy@researcher.com', 'Research scientist in artificial intelligence and machine learning', 12],
-            ['Jack Developer', 'Jack Wang', 'jack@developer.com', 'Mobile app developer specializing in React Native', 10],
-            ['Kate Designer', 'Kate Liu', 'kate@designer.com', 'Graphic designer with expertise in branding and visual identity', 8],
-            ['Leo Manager', 'Leo Zhang', 'leo@manager.com', 'Product manager with experience in SaaS platforms', 6],
-            ['Maya Student', 'Maya Patel', 'maya@student.com', 'Information technology student with interest in cybersecurity', 4],
-            ['Noah Entrepreneur', 'Noah Kumar', 'noah@entrepreneur.com', 'Tech entrepreneur building the next unicorn startup', 2],
-            ['Olivia Analyst', 'Olivia Singh', 'olivia@analyst.com', 'Financial analyst with expertise in fintech and blockchain', 1],
-        ];
+        $createdAdmins = collect();
 
-        $phoneCounter = 894;
-        foreach ($participantNames as $participant) {
-            $users[] = [
-                'name' => $participant[0],
-                'full_name' => $participant[1],
-                'email' => $participant[2],
-                'email_verified_at' => now(),
-                'password' => Hash::make('password123'),
-                'role' => 'participant',
-                'phone' => '+62812345678' . str_pad($phoneCounter++, 2, '0', STR_PAD_LEFT),
-                'bio' => $participant[3],
-                'avatar' => null,
-                'created_at' => now()->subDays($participant[4]),
-                'updated_at' => now()->subDays($participant[4]),
-            ];
+        foreach ($admins as $adminData) {
+            $admin = User::firstOrCreate(
+                ['email' => $adminData['email']],
+                array_merge($adminData, [
+                    'password' => Hash::make('password123'),
+                    'email_verified_at' => now(),
+                ])
+            );
+            $createdAdmins->push($admin);
         }
 
-        User::insert($users);
-        $this->command->info('✅ ' . count($users) . ' users seeded');
+        $this->command->info('✅ ' . $createdAdmins->count() . ' admins seeded (or already existed)');
+        return $createdAdmins;
+    }
+
+    private function seedParticipants()
+    {
+        $this->command->info('👥 Seeding participants...');
+        
+        $participants = collect();
+        
+        // Known participant
+        $participants->push(User::firstOrCreate(
+            ['email' => 'budi@mhs.ittelkom-pwt.ac.id'],
+            [
+                'name' => 'Mhs Budi',
+                'full_name' => 'Budi Pratama',
+                'role' => 'participant',
+                'password' => Hash::make('password123'),
+                'phone' => '081211112222',
+                'email_verified_at' => now(),
+            ]
+        ));
+
+        // Create NEW random participants (Batch of 20 to avoid overcrowding if run multiple times)
+        for ($i = 0; $i < 20; $i++) {
+            $participants->push(User::factory()->create([
+                'name' => $this->faker->userName . rand(100, 999),
+                'full_name' => $this->faker->name,
+                'email' => $this->faker->unique()->userName . rand(100, 999) . '@example.com',
+                'role' => 'participant',
+                'password' => Hash::make('password123'),
+                'phone' => '08' . $this->faker->numerify('##########'),
+                'bio' => 'Mahasiswa aktif Telkom University Purwokerto',
+            ]));
+        }
+
+        $this->command->info('✅ ' . $participants->count() . ' new participants seeded');
+        // Return all existing participants to include them in event registration
+        return User::where('role', 'participant')->get();
     }
 
     private function seedCategories()
     {
-        $this->command->info('📂 Seeding categories...');
+        $this->command->info('📂 Seeding categories (Checking existence)...');
 
         $categories = [
-            ['Technology', 'Events related to technology, programming, and software development', '#3B82F6', 30],
-            ['Business', 'Business conferences, networking events, and entrepreneurship', '#10B981', 29],
-            ['Education', 'Educational workshops, seminars, and learning events', '#F59E0B', 28],
-            ['Health & Wellness', 'Health, fitness, and wellness related events', '#EF4444', 27],
-            ['Arts & Culture', 'Art exhibitions, cultural events, and creative workshops', '#8B5CF6', 26],
-            ['Sports', 'Sports events, tournaments, and fitness activities', '#06B6D4', 25],
-            ['Food & Drink', 'Culinary events, food festivals, and cooking workshops', '#84CC16', 24],
-            ['Entertainment', 'Entertainment events, concerts, and shows', '#F97316', 23],
-            ['Science', 'Scientific conferences, research presentations, and STEM events', '#EC4899', 22],
-            ['Environment', 'Environmental awareness, sustainability, and green technology events', '#6B7280', 21],
+            ['Teknologi', 'Seminar dan workshop teknologi, coding, dan AI', '#3B82F6'],
+            ['Bisnis', 'Kewirausahaan, startup, dan manajemen bisnis', '#10B981'],
+            ['Pendidikan', 'Workshop akademik dan pengembangan soft skill', '#F59E0B'],
+            ['Kesehatan', 'Kesehatan mental dan fisik mahasiswa', '#EF4444'],
+            ['Seni & Budaya', 'Pentas seni, pameran, dan kebudayaan Banyumas', '#8B5CF6'],
+            ['Olahraga', 'Turnamen futsal, basket, dan e-sport', '#06B6D4'],
+            ['Kuliner', 'Festival jajanan banyumasan dan kewirausahaan makanan', '#84CC16'],
+            ['Musik', 'Konser musik kampus dan festival band', '#F97316'],
+            ['Lingkungan', 'Kegiatan pecinta alam dan kebersihan lingkungan', '#6B7280'],
         ];
 
-        $categoryData = [];
+        $createdCategories = collect();
+
         foreach ($categories as $cat) {
-            $categoryData[] = [
-                'name' => $cat[0],
-                'description' => $cat[1],
-                'color' => $cat[2],
-                'is_active' => true,
-                'created_at' => now()->subDays($cat[3]),
-                'updated_at' => now()->subDays($cat[3]),
-            ];
+            $createdCategories->push(Category::firstOrCreate(
+                ['name' => $cat[0]],
+                [
+                    'description' => $cat[1],
+                    'color' => $cat[2],
+                    'is_active' => true,
+                ]
+            ));
         }
 
-        Category::insert($categoryData);
-        $this->command->info('✅ ' . count($categoryData) . ' categories seeded');
+        $this->command->info('✅ ' . $createdCategories->count() . ' categories seeded (or already existed)');
+        return $createdCategories;
     }
 
-    private function seedEvents()
+    private function seedRealEvents($admins, $categories)
     {
-        $this->command->info('🎉 Seeding events...');
+        $this->command->info('🎉 Seeding REAL events (Checking existence)...');
 
-        $organizers = User::where('role', 'admin')->get();
-        $categories = Category::all();
-
-        $events = [
-            ['Test Event Today', 'Event untuk ngetes feedback hari ini.', 'Jakarta Tech Center', 0, 4, 30, 100000, 'published', 'Technology', 1],
-            ['Tech Conference 2024', 'Annual technology conference featuring the latest trends in AI, blockchain, and cloud computing.', 'Jakarta Convention Center', 15, 8, 500, 250000, 'published', 'Technology', 20],
-            ['Laravel Workshop Advanced', 'Deep dive into advanced Laravel concepts including custom packages, testing strategies, and performance optimization.', 'Bandung Tech Hub', 8, 6, 50, 150000, 'published', 'Technology', 18],
-            ['React Native Bootcamp', 'Complete React Native development bootcamp from basics to advanced mobile app development.', 'Surabaya Digital Hub', 25, 48, 30, 500000, 'published', 'Technology', 16],
-            ['Startup Pitch Competition', 'Annual startup pitch competition with prizes up to 100 million IDR.', 'Yogyakarta Innovation Center', 12, 6, 200, 100000, 'published', 'Business', 14],
-            ['Digital Marketing Masterclass', 'Learn advanced digital marketing strategies including SEO, SEM, social media marketing.', 'Jakarta Marketing Hub', 20, 4, 100, 200000, 'published', 'Business', 12],
-            ['Data Science Workshop', 'Introduction to data science with Python, machine learning basics, and data visualization.', 'Bandung University', 18, 5, 40, 180000, 'published', 'Education', 10],
-            ['UI/UX Design Bootcamp', 'Comprehensive UI/UX design bootcamp covering user research, wireframing, prototyping.', 'Surabaya Design School', 30, 48, 25, 400000, 'published', 'Education', 8],
-            ['Yoga & Meditation Retreat', 'Weekend yoga and meditation retreat for stress relief and mental wellness.', 'Yogyakarta Wellness Center', 22, 24, 20, 300000, 'published', 'Health & Wellness', 6],
-            ['Digital Art Exhibition', 'Contemporary digital art exhibition featuring works from local and international artists.', 'Jakarta Art Gallery', 28, 48, 150, 50000, 'published', 'Arts & Culture', 4],
-            ['Web Development Bootcamp', 'Complete web development bootcamp covering HTML, CSS, JavaScript, and modern frameworks.', 'Bandung Coding Academy', -5, 48, 35, 350000, 'completed', 'Technology', 20],
-            ['Business Networking Event', 'Monthly business networking event for entrepreneurs and professionals.', 'Jakarta Business Center', -10, 3, 80, 75000, 'completed', 'Business', 25],
-            ['AI & Machine Learning Summit', 'Comprehensive summit on artificial intelligence and machine learning applications.', 'Jakarta AI Center', 45, 8, 300, 400000, 'draft', 'Technology', 2],
-            ['Blockchain Technology Workshop', 'Hands-on workshop on blockchain technology, smart contracts, and cryptocurrency.', 'Surabaya Blockchain Hub', 35, 6, 60, 280000, 'draft', 'Technology', 1],
+        $events = collect();
+        
+        $locations = [
+            'Telkom University Purwokerto, Gedung IoT',
+            'Auditorium Telkom University Purwokerto',
+            'Alun-alun Purwokerto',
+            'GOR Satria Purwokerto',
+            'Hotel Java Heritage Purwokerto',
+            'Coworking Space Hetero Space Banyumas',
+            'Kampus 2 Telkom University Purwokerto'
         ];
 
-        $eventData = [];
-        foreach ($events as $event) {
-            $category = $categories->where('name', $event[8])->first();
+        $realEvents = [
+            [
+                'title' => 'Seminar Nasional: Masa Depan AI di Indonesia',
+                'desc' => 'Membahas perkembangan Artificial Intelligence dan peluang karir bagi mahasiswa informatika.',
+                'cat' => 'Teknologi',
+                'loc' => 'Auditorium Telkom University Purwokerto',
+                'price' => 50000,
+                'quota' => 300,
+                'status' => 'published',
+                'date_mod' => '+1 week'
+            ],
+            [
+                'title' => 'Workshop Laravel 11 & React JS',
+                'desc' => 'Pelatihan hands-on membangun aplikasi fullstack modern dengan Laravel dan React.',
+                'cat' => 'Teknologi',
+                'loc' => 'Lab Komputer Gedung IoT',
+                'price' => 75000,
+                'quota' => 50,
+                'status' => 'published',
+                'date_mod' => '+2 weeks'
+            ],
+            [
+                'title' => 'Banyumas Startup Festival 2026',
+                'desc' => 'Pameran startup lokal Banyumas dan sesi pitching dengan investor.',
+                'cat' => 'Bisnis',
+                'loc' => 'Hotel Java Heritage Purwokerto',
+                'price' => 100000,
+                'quota' => 500,
+                'status' => 'published',
+                'date_mod' => '+1 month'
+            ],
+            [
+                'title' => 'E-Sport Mobile Legends Championship',
+                'desc' => 'Turnamen Mobile Legends antar prodi se-Telkom University Purwokerto.',
+                'cat' => 'Olahraga',
+                'loc' => 'Aula Kawasan Pendidikan Telkom',
+                'price' => 25000,
+                'quota' => 64, // Tim
+                'status' => 'published',
+                'date_mod' => '+3 days'
+            ],
+            [
+                'title' => 'Festival Budaya Banyumasan: Ebeg & Lengger',
+                'desc' => 'Pagelaran seni tradisional khas Banyumas untuk melestarikan budaya lokal.',
+                'cat' => 'Seni & Budaya',
+                'loc' => 'Alun-alun Purwokerto',
+                'price' => 0,
+                'quota' => 1000,
+                'status' => 'published',
+                'date_mod' => '+2 months'
+            ],
+            [
+                'title' => 'Seminar Kesehatan Mental Mahasiswa',
+                'desc' => 'Pentingnya menjaga kesehatan mental di tengah tekanan akademik.',
+                'cat' => 'Kesehatan',
+                'loc' => 'Kampus 2 Telkom University Purwokerto',
+                'price' => 15000,
+                'quota' => 100,
+                'status' => 'completed',
+                'date_mod' => '-1 week'
+            ],
+            [
+                'title' => 'Workshop Digital Marketing UMKM Banyumas',
+                'desc' => 'Membantu UMKM lokal Go Digital dengan strategi pemasaran online.',
+                'cat' => 'Bisnis',
+                'loc' => 'Coworking Space Hetero Space Banyumas',
+                'price' => 50000,
+                'quota' => 30,
+                'status' => 'completed',
+                'date_mod' => '-2 weeks'
+            ],
+            [
+                'title' => 'Pelatihan UI/UX Design Fundamental',
+                'desc' => 'Belajar dasar desain antarmuka pengguna menggunakan Figma.',
+                'cat' => 'Teknologi',
+                'loc' => 'Lab Multimedia',
+                'price' => 35000,
+                'quota' => 40,
+                'status' => 'draft',
+                'date_mod' => '+1 month'
+            ]
+        ];
+
+        foreach ($realEvents as $evt) {
+            $category = $categories->firstWhere('name', $evt['cat']);
+            $admin = $admins->random();
             
-            $eventData[] = [
-                'title' => $event[0],
-                'description' => $event[1],
-                'location' => $event[2],
-                'start_date' => now()->addDays($event[3])->format('Y-m-d H:i:s'),
-                'end_date' => now()->addDays($event[3])->addHours($event[4])->format('Y-m-d H:i:s'),
-                'quota' => $event[5],
-                'price' => $event[6],
-                'status' => $event[7],
-                'image' => null,
-                'user_id' => $organizers->random()->id,
-                'category_id' => $category->id,
-                'created_at' => now()->subDays($event[9]),
-                'updated_at' => now()->subDays($event[9]),
-            ];
-        }
-        
-
-        Event::insert($eventData);
-        $this->command->info('✅ ' . count($eventData) . ' events seeded');
-    }
-
-    private function seedEventParticipants()
-    {
-        $this->command->info('👥 Seeding event participants...');
-
-        $events = Event::whereIn('status', ['published', 'completed'])->get();
-        $participants = User::where('role', 'participant')->get();
-        $participantData = [];
-
-        foreach ($events as $event) {
-            $maxParticipants = min($event->quota, $participants->count());
-            $participantCount = rand((int)($maxParticipants * 0.3), (int)($maxParticipants * 0.8));
-
-            // Shuffle dan ambil unique participants
-            $selectedParticipants = $participants->shuffle()->take($participantCount);
-
-            foreach ($selectedParticipants as $participant) {
-                $statuses = ['registered', 'attended', 'cancelled'];
-                $weights = [70, 25, 5];
-                $status = $this->weightedRandom($statuses, $weights);
-
-                $attendedAt = null;
-                if ($status === 'attended' && $event->status === 'completed') {
-                    $attendedAt = $event->start_date;
-                }
-
-                $participantData[] = [
-                    'event_id' => $event->id,
-                    'user_id' => $participant->id,
-                    'status' => $status,
-                    'is_paid' => $status === 'attended' ? true : (rand(1, 100) <= 80),
-                    'amount_paid' => $status === 'attended' ? $event->price : null,
-                    'payment_reference' => $status === 'attended' ? 'PAY-' . rand(100000, 999999) : null,
-                    'attended_at' => $attendedAt,
-                    'created_at' => now()->subDays(rand(1, 30)),
-                    'updated_at' => now()->subDays(rand(1, 30)),
-                ];
+            // Check if event with same title exists to avoid duplication
+            $existing = Event::where('title', $evt['title'])->first();
+            if ($existing) {
+                $events->push($existing);
+                continue;
             }
+
+            $startDate = date('Y-m-d H:i:s', strtotime($evt['date_mod']));
+            $endDate = date('Y-m-d H:i:s', strtotime($evt['date_mod'] . ' + 4 hours'));
+
+            $event = Event::factory()->create([
+                'title' => $evt['title'],
+                'description' => $evt['desc'],
+                'location' => $evt['loc'],
+                'category_id' => $category->id,
+                'user_id' => $admin->id,
+                'price' => $evt['price'],
+                'is_paid' => $evt['price'] > 0,
+                'quota' => $evt['quota'],
+                'status' => $evt['status'],
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                // Image can be handled by factory default or set null
+            ]);
+            $events->push($event);
         }
 
-        EventParticipant::insert($participantData);
-        $this->command->info('✅ ' . count($participantData) . ' event participants seeded');
+        $this->command->info('✅ ' . $events->count() . ' REAL events seeded (or already existed)');
+        return $events;
     }
 
-    private function seedFeedbacks()
+    private function seedRandomEvents($admins, $categories)
     {
-        $this->command->info('💬 Seeding feedbacks...');
-
-        $attendedParticipants = EventParticipant::where('status', 'attended')
-            ->whereNotNull('attended_at')
-            ->get();
-
-        $feedbackData = [];
-        $feedbackTemplates = [
-            'Great event! Very informative and well-organized.',
-            'Excellent speakers and valuable content.',
-            'Good event, learned a lot from the presentations.',
-            'Well-structured program with practical insights.',
-            'Amazing networking opportunities and great venue.',
-            'Could be better organized, but overall good experience.',
-            'Outstanding event! Highly recommend for next year.',
-            'Good content but could improve on time management.',
-            'Fantastic speakers and engaging discussions.',
-            'Very professional event with high-quality content.',
+        $locations = [
+            'Telkom University Purwokerto',
+            'Purwokerto City Center',
+            'Baturraden',
+            'GOR Satria',
+            'Universitas Jenderal Soedirman',
+            'Taman Kota Andhang Pangrenan'
         ];
 
-        foreach ($attendedParticipants as $participant) {
-            if (rand(1, 100) <= 80) {
-                $ratings = [1, 2, 3, 4, 5];
-                $weights = [5, 10, 15, 35, 35];
-                $rating = $this->weightedRandom($ratings, $weights);
-
-                $feedbackData[] = [
-                    'event_id' => $participant->event_id,
-                    'user_id' => $participant->user_id,
-                    'rating' => $rating,
-                    'comment' => $feedbackTemplates[array_rand($feedbackTemplates)],
-                    'created_at' => Carbon::parse($participant->attended_at)->addHours(rand(1, 24)),
-                    'updated_at' => Carbon::parse($participant->attended_at)->addHours(rand(1, 24)),
-                ];
-            }
-        }
-
-        if (!empty($feedbackData)) {
-            Feedback::insert($feedbackData);
-        }
-        
-        $this->command->info('✅ ' . count($feedbackData) . ' feedbacks seeded');
-    }
-
-    private function seedNotifications()
-    {
-        $this->command->info('🔔 Seeding notifications...');
-
-        $users = User::all();
-        $events = Event::where('status', 'published')->get();
-
-        if ($events->isEmpty()) {
-            $this->command->warn('⚠️ No published events found, skipping notifications');
+        // Ensure we don't spam too many events if there are already many
+        if (Event::count() > 100) {
+            $this->command->info('⚠️ Skipping random events seeding, too many events already exist.');
             return;
         }
 
-        $notificationData = [];
-        $types = ['event_reminder', 'event_cancelled', 'event_updated', 'new_event', 'feedback_request'];
-        
-        $titles = [
-            'event_reminder' => 'Event Reminder',
-            'event_cancelled' => 'Event Cancelled',
-            'event_updated' => 'Event Updated',
-            'new_event' => 'New Event Available',
-            'feedback_request' => 'Please Leave Feedback',
-        ];
-
-        $messages = [
-            'event_reminder' => 'Don\'t forget! Your event is starting soon.',
-            'event_cancelled' => 'Unfortunately, the event has been cancelled.',
-            'event_updated' => 'The event details have been updated.',
-            'new_event' => 'A new event matching your interests is now available.',
-            'feedback_request' => 'Please share your feedback about the recent event.',
-        ];
-
-        foreach ($users as $user) {
-            $notificationCount = rand(5, 15);
-
-            for ($i = 0; $i < $notificationCount; $i++) {
-                $type = $types[array_rand($types)];
-                $event = $events->random();
-
-                $notificationData[] = [
-                    'user_id' => $user->id,
-                    'event_id' => $event->id,
-                    'type' => $type,
-                    'title' => $titles[$type],
-                    'message' => $messages[$type],
-                    'is_read' => rand(1, 100) <= 70,
-                    'data' => json_encode(['event_id' => $event->id]),
-                    'created_at' => now()->subDays(rand(1, 30)),
-                    'updated_at' => now()->subDays(rand(1, 30)),
-                ];
-            }
-        }
-
-        Notification::insert($notificationData);
-        $this->command->info('✅ ' . count($notificationData) . ' notifications seeded');
+        Event::factory()->count(10)->published()->make()->each(function ($event) use ($admins, $categories, $locations) {
+            $event->user_id = $admins->random()->id;
+            $event->category_id = $categories->random()->id;
+            $event->location = $this->faker->randomElement($locations);
+            $event->title = $this->faker->sentence(3) . ' (Di Purwokerto)';
+            $event->save();
+        });
+        $this->command->info('✅ 10 random events seeded.');
     }
 
-    private function weightedRandom($items, $weights)
+    private function seedEventParticipants($events, $participants)
     {
-        $totalWeight = array_sum($weights);
-        $random = rand(1, $totalWeight);
-        $currentWeight = 0;
+        $this->command->info('👥 Seeding registrations...');
+        
+        $count = 0;
+        
+        foreach ($events as $event) {
+            if ($event->status === 'draft') continue;
 
-        foreach ($items as $index => $item) {
-            $currentWeight += $weights[$index];
-            if ($random <= $currentWeight) {
-                return $item;
+            // Pick 3-10 participants, filtering out those already registered
+            $registeredUserIds = EventParticipant::where('event_id', $event->id)->pluck('user_id')->toArray();
+            $availableParticipants = $participants->whereNotIn('id', $registeredUserIds);
+
+            if ($availableParticipants->isEmpty()) continue;
+
+            $newParticipants = $availableParticipants->random(min($availableParticipants->count(), rand(3, 10)));
+            
+            foreach ($newParticipants as $user) {
+                // Logic registrasi based on status, ensuring NO DUPLICATES handled by availableParticipants check
+                $status = $this->faker->randomElement(['registered', 'attended', 'cancelled']);
+                if ($event->status === 'completed' && $status === 'registered') {
+                    $status = 'attended';
+                }
+
+                $factory = EventParticipant::factory()
+                    ->state([
+                        'user_id' => $user->id,
+                        'event_id' => $event->id,
+                        'created_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
+                    ]);
+
+                 if ($status === 'attended') {
+                    $factory = $factory->attended();
+                    if ($event->is_paid) {
+                        $factory = $factory->paid($event->price);
+                    }
+                } elseif ($status === 'cancelled') {
+                    $factory = $factory->cancelled();
+                } else {
+                     if ($event->is_paid && $this->faker->boolean(70)) {
+                         $factory = $factory->paid($event->price);
+                     }
+                }
+                
+                $factory->create();
+                $event->increment('registered_count');
+                $count++;
             }
         }
 
-        return $items[0];
+        $this->command->info('✅ ' . $count . ' new registrations seeded');
+    }
+
+    private function seedFeedbacks($events, $participants)
+    {
+        $this->command->info('💬 Seeding feedbacks...');
+        
+        $count = 0;
+        $completedEvents = $events->where('status', 'completed');
+
+        // Context-aware comments
+        $comments = [
+            'Teknologi' => [
+                'Materi coding-nya sangat insightful, speaker juga expert!',
+                'Demo aplikasinya keren, membuka wawasan baru soal AI.',
+                'Sesi live coding agak terlalu cepat, tapi overall oke.',
+                'Teknologi yang dibahas sangat relevan dengan industri saat ini.',
+                'Next time mungkin bisa lebih banyak sesi hands-on programming.',
+                'Sangat bermanfaat buat nambah portofolio developer.',
+            ],
+            'Bisnis' => [
+                'Tips membangun startup-nya sangat praktis dan bisa langsung diterapkan.',
+                'Networking session-nya bagus banget, ketemu banyak founder lokal.',
+                'Analisis pasar yang dipaparkan sangat tajam.',
+                'Materinya daging semua, cocok buat yang mau mulai usaha.',
+                'Sangat inspiratif mendengar cerita jatuh bangun para pengusaha Banyumas.',
+            ],
+            'Seni & Budaya' => [
+                'Pertunjukan ebeg-nya magis banget, merinding!',
+                'Salut buat panitia yang terus melestarikan budaya Banyumasan.',
+                'Tata panggung dan lighting sangat mendukung suasana.',
+                'Keren, senimannya sangat totalitas dalam berkarya.',
+                'Semoga makin banyak event budaya seperti ini di Purwokerto.',
+            ],
+            'Olahraga' => [
+                'Turnamennya kompetitif dan fair play terjaga.',
+                'Venue GOR Satria memang paling pas buat event ginian.',
+                'Jadwal pertandingan on time, wasit juga tegas.',
+                'Seru banget pertandingannya, suporter juga tertib.',
+                'Hadiahnya lumayan, persaingan jadi makin ketat.',
+            ],
+            'Kesehatan' => [
+                'Penjelasannya menenangkan, jadi lebih aware soal mental health.',
+                'Sangat edukatif, banyak mitos kesehatan yang diluruskan di sini.',
+                'Pembicaranya dokter spesialis yang sangat komunikatif.',
+                'Materi diet dan nutrisinya mudah dipahami orang awam.',
+                'Terima kasih tips kesehatan mentalnya, sangat relate dengan mahasiswa.',
+            ],
+            'Pendidikan' => [
+                'Metode belajarnya asik, ga bikin ngantuk.',
+                'Sangat memotivasi untuk lanjut studi S2.',
+                'Tips beasiswanya sangat membantu, detail banget.',
+                'Diskusi akademiknya hidup, banyak perspektif baru.',
+                'Worksheet yang dikasih sangat membantu evaluasi diri.',
+            ],
+            'Kuliner' => [
+                'Makanannya enak-enak, banyak jajanan unik.',
+                'Demonstrasi masaknya seru, chef-nya lucu.',
+                'Sampel makanannya kurang banyak hehe, tapi enak!',
+                'Tenant yang hadir variatif, puas jajan di sini.',
+                'Tips bisnis kulinernya sangat berharga.',
+            ],
+            'Musik' => [
+                'Sound system nendang banget, pecahh!',
+                'Guest star-nya gokil, crowd control-nya jago.',
+                'Lineup band lokalnya juga gak kalah keren.',
+                'Visual stage-nya estetik parah.',
+                'Crowd-nya asik, sing along terus dari awal sampe akhir.',
+            ],
+            'Lingkungan' => [
+                'Aksi bersih-bersihnya seru, capek tapi puas.',
+                'Jadi lebih paham soal pilah sampah dan daur ulang.',
+                'Semoga impact-nya berkelanjutan buat Banyumas.',
+                'Edukasi lingkungannya dikemas dengan fun.',
+                'Gerakan positif yang harus didukung terus.',
+            ],
+            'Default' => [
+                'Acara yang sangat bagus dan well-organized.',
+                'Panitia ramah dan sangat membantu peserta.',
+                'Fasilitas venue cukup memadai dan nyaman.',
+                'Semoga tahun depan diadakan lagi dengan skala lebih besar.',
+                'Terima kasih atas ilmunya, sangat bermanfaat.',
+            ]
+        ];
+
+        foreach ($completedEvents as $event) {
+            // Get attendees
+            $attendees = EventParticipant::where('event_id', $event->id)
+                ->where('status', 'attended')
+                ->get();
+            
+            if ($attendees->isEmpty()) continue;
+            
+            $categoryName = $event->category ? $event->category->name : 'Default';
+            $categoryComments = $comments[$categoryName] ?? $comments['Default'];
+
+            foreach ($attendees as $attendee) {
+                // Check if user already gave feedback for this event
+                if (Feedback::where('user_id', $attendee->user_id)->where('event_id', $event->id)->exists()) {
+                    continue;
+                }
+
+                if ($this->faker->boolean(40)) { // Lower chance since we run it multiple times
+                    Feedback::factory()->create([
+                        'event_id' => $event->id,
+                        'user_id' => $attendee->user_id,
+                        'comment' => $this->faker->randomElement($categoryComments),
+                    ]);
+                    $count++;
+                }
+            }
+        }
+
+        $this->command->info('✅ ' . $count . ' new feedbacks seeded');
+    }
+
+    private function seedNotifications($users, $events)
+    {
+        $this->command->info('🔔 Seeding notifications...');
+        
+        // Add just a few new notifications
+        foreach ($users->random(min($users->count(), 20)) as $user) {
+            // Ensure we don't create too many notifications for a single user/event combination
+            if (Notification::where('user_id', $user->id)->count() < 5) { // Limit to 5 notifications per user
+                Notification::factory()->count(1)->create([
+                    'user_id' => $user->id,
+                    'event_id' => $events->random()->id ?? 1,
+                ]);
+                $this->command->info('🔔 Notification created for user ' . $user->id);
+            }
+        }
     }
 }

@@ -46,11 +46,11 @@ return [
         'platform_fee_percentage' => env('PLATFORM_FEE_PERCENTAGE', 5), // Default 5%
         'minimum_withdrawal_amount' => env('MINIMUM_WITHDRAWAL_AMOUNT', 50000), // Default Rp 50,000
     ],
-'groq' => [
-    'api_key' => env('GROQ_API_KEY'),
-    'model' => env('GROQ_MODEL'),
-    'api_url' => env('GROQ_API_URL'),
-],
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY', ''),
+        'model' => env('GROQ_MODEL', 'llama-3.1-8b-instant'),
+        'api_url' => env('GROQ_API_URL', 'https://api.groq.com/openai/v1/chat/completions'),
+    ],
 
 
 ];
